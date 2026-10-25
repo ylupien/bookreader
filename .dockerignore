@@ -1,0 +1,10 @@
+# Le contexte de build ne doit contenir que requirements.txt, server/ et web/ :
+# build/runtime (~8 Go), node_modules, dist et .venv le rendraient énorme.
+*
+!requirements.txt
+!server/
+!web/
+# L'interface est construite dans l'image (étape « web »)
+server/static/
+web/node_modules/
+**/__pycache__/

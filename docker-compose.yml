@@ -1,0 +1,22 @@
+# Version web de BookReader (serveur seul, sans Electron). L'interface est servie sur le port 8001.
+# Nom et port différents de la version de référence (WSL, port 8000) pour ne pas entrer en conflit.
+# Une seule des deux versions (ou l'application Windows) doit utiliser le GPU à la fois.
+services:
+  bookreader:
+    build: .
+    container_name: bookreader-win
+    ports:
+      - "127.0.0.1:8001:8000"   # accessible seulement depuis cet ordinateur ; retirer 127.0.0.1: pour le réseau local
+    volumes:
+      - ./data:/data
+    user: "1000:1000"
+    environment:
+      - HOME=/tmp
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

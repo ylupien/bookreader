@@ -1,0 +1,30 @@
+﻿[project]
+name = "bookreader-server"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "python-multipart==0.0.20",
+    "coqui-tts==0.28.0",
+    "pypdf==5.1.0",
+    "python-docx==1.1.2",
+    "EbookLib==0.18",
+    "beautifulsoup4==4.12.3",
+    "markdown==3.7",
+    "striprtf==0.0.28",
+    "torch==2.7.1",
+    "torchaudio==2.7.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

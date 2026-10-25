@@ -1,0 +1,26 @@
+# Données privées de l'utilisateur : livres, voix, aperçus (ne jamais publier)
+data/
+
+# Python + torch + modèle XTTS + ffmpeg (~8 Go) : reconstruit par build/prepare-runtime.ps1
+build/runtime/
+
+# Application empaquetée et installateurs
+dist/
+
+# Interface construite par web/ (npm run build:web)
+server/static/
+
+# Environnements et dépendances
+.venv/
+node_modules/
+web/node_modules/
+__pycache__/
+*.pyc
+
+# Poste de travail
+.idea/
+.vscode/
+*.log
+.env
+.env.*
+Thumbs.db
