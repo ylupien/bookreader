@@ -20,3 +20,22 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  # Distribution de l'installateur sur le réseau local : Apache avec liste des fichiers de dist/installer
+  # (BookReader-Setup.exe, .bin, .zip, SHA256SUMS.txt ; voir build/make-installer.ps1).
+  # Il n'est PAS lancé par « docker compose up » (profil « distribution »). Pour le démarrer / l'arrêter :
+  #   docker compose --profile distribution up -d installer-server
+  #   docker compose --profile distribution stop installer-server
+  # Adresse : http://<IP de ce PC>:8090/   (changer le port : variable INSTALLER_PORT)
+  installer-server:
+    profiles: ["distribution"]
+    image: httpd:2.4-alpine
+    container_name: bookreader-installer
+    ports:
+      - "${INSTALLER_PORT:-8090}:80"   # toutes les interfaces : accessible depuis le réseau local
+    volumes:
+      - ./dist/installer:/usr/local/apache2/htdocs:ro
+      - ./distribution/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+      - ./distribution/assets:/usr/local/apache2/assets:ro
+      - ./distribution/logs:/usr/local/apache2/logs
+    restart: "no"   # démarre seulement à la demande : pas de relance automatique avec Docker ou Windows

@@ -57,6 +57,22 @@ Puis ouvrir http://127.0.0.1:8001. Les livres sont dans `.\data` (conteneur `boo
 pour ne pas gêner l'ancienne version de référence sur le port 8000). Une seule version à la fois doit
 utiliser le GPU : arrêter les autres (`docker compose down`, fermer l'application Windows).
 
+## Distribuer l'installateur sur le réseau local (Apache)
+
+Un petit serveur Apache (Docker) publie le dossier `dist\installer` avec la **liste des fichiers** (`Options +Indexes`) :
+`BookReader-Setup.exe` + `.bin`, **`BookReader-Setup.zip`** (tous les fichiers de l'installation en un seul) et `SHA256SUMS.txt`.
+Le ZIP et les sommes de contrôle sont créés par `build\make-installer.ps1` (`-ZipOnly` pour les refaire sans recompiler).
+
+```powershell
+docker compose --profile distribution up -d installer-server    # démarrer
+docker compose --profile distribution stop installer-server     # arrêter
+```
+
+Adresse : `http://<IP de ce PC>:8090/` (port modifiable avec la variable `INSTALLER_PORT`). Le service est dans le profil
+`distribution` : **`docker compose up` ne le lance pas**, et il ne redémarre pas tout seul avec Docker ou Windows. Il est en lecture seule, limité aux adresses privées du réseau local,
+et accepte la reprise des téléchargements interrompus. Si un autre PC n'y accède pas, autoriser le port 8090 en entrée dans le
+pare-feu Windows.
+
 ## Données
 
 Livres, voix et aperçus sont dans `%APPDATA%\BookReader` (conservés à la désinstallation). Les

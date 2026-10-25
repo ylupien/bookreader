@@ -24,3 +24,6 @@ __pycache__/
 .env
 .env.*
 Thumbs.db
+
+# Journaux du serveur de distribution
+distribution/logs/
