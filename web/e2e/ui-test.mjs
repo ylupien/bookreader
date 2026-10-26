@@ -87,6 +87,13 @@ try {
   check('bloc voix de la page, pas de second choix', await ev(`!document.querySelector('.regen')`));
   await shot('2-brouillon');
 
+  // Alerte de langue : une voix anglaise sur un texte français déforme les mots
+  check('pas d\'alerte quand la langue choisie correspond au texte', await ev(`!document.querySelector('.lang-warn')`));
+  await ev(`[...document.querySelectorAll('#sidebar .seg button')].find((b) => b.textContent.includes('English')).click()`);
+  check('alerte visible si la langue choisie ne correspond pas au texte', await waitFor(`!!document.querySelector('.lang-warn') && document.querySelector('.lang-warn').textContent.includes('Français')`, 3000));
+  await clickText('.lang-warn button', 'Passer en');
+  check('un clic remet la bonne langue et l\'alerte disparaît', await waitFor(`!document.querySelector('.lang-warn')`, 3000));
+
   // Choix des paragraphes de l'échantillon : cases à cocher (plusieurs, Maj+clic pour une plage)
   check('une case à cocher par paragraphe', (await ev(`document.querySelectorAll('.text.draft input.pick').length`)) >= 4);
   check('sans sélection : « les 2 premiers paragraphes »', await ev(`document.querySelector('.msg').textContent.includes('les 2 premiers paragraphes')`));

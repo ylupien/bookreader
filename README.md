@@ -21,8 +21,9 @@ local et **hors ligne** : sans WSL, sans Docker, sans Python ni CUDA Toolkit à 
 - Export : MP3, ZIP d'un MP3 par chapitre (tags ID3 et playlist) et M4B avec chapitres.
 - **Rien n'est perdu** : les échantillons s'accumulent dans le livre (lecture, suppression, avec leur voix, vitesse, langue, paragraphes…)
   et chaque conversion est conservée dans « Versions précédentes » (audio, exports et réglages utilisés).
-- Narration soignée : guillemets, notes de bas de page ([1]), symboles et abréviations (p. 12) sont préparés avant la lecture pour que
-  le moteur n'invente pas de mots. Vitesse de lecture par défaut : 1×.
+- Narration soignée : guillemets, ligatures de PDF, notes de bas de page ([1]), symboles et abréviations (p. 12) sont préparés avant la
+  lecture, et les phrases où le moteur déraille (mot parasite en fin de phrase) sont resynthétisées. Une alerte signale une voix d'une
+  autre langue que le texte. Vitesse de lecture par défaut : 1×.
 - La croix de la fenêtre quitte l'application, sauf pendant une conversion : la fenêtre est alors
   cachée dans la zone de notification (clic sur l'icône pour la rouvrir, clic droit puis « Quitter »
   pour arrêter) ; notification quand un livre est terminé ; la mise en veille est bloquée pendant le calcul.

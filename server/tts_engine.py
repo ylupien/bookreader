@@ -4,7 +4,9 @@ Une « voix » = deux tenseurs (gpt_cond_latent + speaker_embedding) passés au 
 Les voix intégrées viennent du modèle ; les voix personnalisées (clonées ou mélangées)
 sont stockées dans DATA_DIR/voices.
 """
+import collections
 import re
+import statistics
 import threading
 
 import numpy as np
@@ -108,6 +110,44 @@ def chunk_text(text: str, language: str = "en") -> list[str]:
     return speech_text.chunk_text(text, _is_known if _tts is not None else None, language)
 
 # --- Synthèse ----------------------------------------------------------------
+# XTTS est aléatoire : dans ~5 % des morceaux il ajoute un mot parasite (« point », « coin »…) ou du charabia en fin de phrase
+# (mesuré avec une retranscription Whisper). Ces morceaux sont reconnaissables à leur durée, nettement supérieure à celle
+# attendue pour leur nombre de caractères à la vitesse de parole habituelle de la voix : on les resynthétise (nouveau tirage).
+
+DEFAULT_RATE = 15.0       # caractères par seconde, avant d'avoir assez de morceaux pour calibrer
+CALIBRATION_MIN = 5       # morceaux acceptés nécessaires pour calculer la vitesse de parole médiane
+LONG_RATIO = 1.5          # un morceau est suspect s'il dure plus de 1,5× la durée attendue...
+LONG_EXCESS = 1.2         # ... et au moins 1,2 s de plus
+MAX_RETRIES = 2           # nouveaux tirages avant d'accepter le plus court
+_rates: dict[tuple, collections.deque] = {}   # (langue, vitesse) -> caractères/seconde des derniers morceaux acceptés
+
+
+def _expected_seconds(chunk: str, key: tuple) -> float:
+    samples = _rates.get(key)
+    rate = statistics.median(samples) if samples and len(samples) >= CALIBRATION_MIN else DEFAULT_RATE
+    return len(chunk) / rate
+
+
+def is_overlong(chunk: str, seconds: float, key: tuple) -> bool:
+    """Le morceau dure-t-il anormalement longtemps (mot parasite, charabia, long silence) ?"""
+    if sum(c.isdigit() for c in chunk) > 0.08 * len(chunk):
+        return False   # les nombres s'allongent à l'oral (1945 → « mille neuf cent… ») : durée non comparable
+    expected = _expected_seconds(chunk, key)
+    return seconds > expected * LONG_RATIO and seconds - expected > LONG_EXCESS
+
+
+def _generate(model, chunk: str, language: str, gpt, spk, dev, st: dict, speed: float) -> np.ndarray:
+    with _gpu_lock, torch.inference_mode():
+        out = model.inference(
+            chunk, language, gpt.to(dev), spk.to(dev),
+            temperature=st["temperature"], top_p=st["top_p"], top_k=50,
+            repetition_penalty=st["repetition_penalty"], length_penalty=1.0,
+            speed=speed, enable_text_splitting=False,
+        )
+    wav = out["wav"]
+    wav = wav.cpu().numpy() if torch.is_tensor(wav) else np.asarray(wav)
+    return (np.clip(wav.astype(np.float32).reshape(-1), -1.0, 1.0) * 32767).astype(np.int16)
+
 
 def synthesize(text: str, latents, language: str, speed: float = 1.0, settings: dict | None = None, on_chunk=None):
     """Génère l'audio PCM 16 bits mono (24 kHz), phrase par phrase.
@@ -118,19 +158,20 @@ def synthesize(text: str, latents, language: str, speed: float = 1.0, settings: 
     dev = model.device
     pause = b"\x00\x00" * int(SAMPLE_RATE * st["sentence_pause"])
     chunks = chunk_text(text, language)
+    key = (language, round(speed, 2))
     for i, chunk in enumerate(chunks):
         if on_chunk:
             on_chunk(i, len(chunks))
-        with _gpu_lock, torch.inference_mode():
-            out = model.inference(
-                chunk, language, gpt.to(dev), spk.to(dev),
-                temperature=st["temperature"], top_p=st["top_p"], top_k=50,
-                repetition_penalty=st["repetition_penalty"], length_penalty=1.0,
-                speed=speed, enable_text_splitting=False,
-            )
-        wav = out["wav"]
-        wav = wav.cpu().numpy() if torch.is_tensor(wav) else np.asarray(wav)
-        pcm = (np.clip(wav.astype(np.float32).reshape(-1), -1.0, 1.0) * 32767).astype(np.int16)
+        pcm = _generate(model, chunk, language, gpt, spk, dev, st, speed)
+        for _ in range(MAX_RETRIES):
+            if not is_overlong(chunk, len(pcm) / SAMPLE_RATE, key):
+                break
+            retry = _generate(model, chunk, language, gpt, spk, dev, st, speed)   # nouveau tirage
+            if len(retry) < len(pcm):
+                pcm = retry
+        seconds = len(pcm) / SAMPLE_RATE
+        if len(chunk) >= 30 and not is_overlong(chunk, seconds, key):
+            _rates.setdefault(key, collections.deque(maxlen=60)).append(len(chunk) / seconds)
         yield pcm.tobytes()
         if i < len(chunks) - 1:
             yield pause

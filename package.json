@@ -21,7 +21,7 @@
     "directories": { "output": "dist" },
     "files": ["desktop/**/*", "package.json"],
     "extraResources": [
-      { "from": "server", "to": "server", "filter": ["**/*", "!**/__pycache__/**"] },
+      { "from": "server", "to": "server", "filter": ["**/*", "!**/__pycache__/**", "!tests/**"] },
       { "from": "build/icon.png", "to": "icon.png" }
     ],
     "win": { "target": "dir", "signAndEditExecutable": false },

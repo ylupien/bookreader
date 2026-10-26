@@ -204,20 +204,31 @@ Une carte de 4 Go de VRAM suffit pour XTTS mais c'est juste.
   (WSL, port 8000). Une seule version à la fois sur le GPU.
 - **Test de bout en bout** : `node web/e2e/ui-test.mjs` (Chrome sans fenêtre piloté par CDP, aucun paquet) sur le serveur du
   port 8001 : import, cases à cocher, échantillon, conversion, favoris, mélange de voix, mise en page ; 60 vérifications réussies le 2026-10-25 ; il supprime ce qu'il crée. **Non testés** : clonage de voix au micro, import PDF/DOCX.
-### Qualité de la narration (`server/speech_text.py`, 2026-10-25)
+### Qualité de la narration (`server/speech_text.py`, `tts_engine.py`, 2026-10-25)
 
-Diagnostic mesuré avec une retranscription **Whisper** de l'audio réellement produit (CPU, `asr_probe`, cas types) : XTTS **invente des
-mots** quand il reçoit (1) un morceau de **ponctuation seule** (« . », « ” », « » ») : charabia (« Nine round », « Yua »…) ; ces morceaux
-naissaient de l'espace avant un guillemet fermant (`… . ”`, très fréquent dans les livres typographiés) et de l'ancien ajout d'un « . »
-derrière `”` ; (2) un **morceau très court issu d'une abréviation coupée** (`p. 12` → « p. » + « 12). » → « CPA 12 ») ; (3) un
-**caractère inconnu** de son vocabulaire (©, `[`, `]`, `+`, `}`…) ou un **appel de note** (`[1]` → « one you », `animals.1` → « one
-door »). Le « point » entendu en fin de paragraphe correspond à ces morceaux de ponctuation seule ; le mot « point » lui-même n'a pas été
-reproduit tel quel. Un « doctor » parasite après « 1945. » a été entendu une fois (peut être un artefact de Whisper).
+Diagnostic mesuré avec une retranscription **Whisper** de l'audio réellement produit (CPU, cas types puis conversions réelles) : XTTS
+**invente des mots** dans ces cas :
+1. un morceau de **ponctuation seule** (« . », « ” », « » ») : charabia (« Nine round », « Yua »…) ; il naissait de l'espace avant un
+   guillemet fermant (`… . ”`, fréquent dans les livres typographiés) et de l'ancien ajout d'un « . » derrière `”` ;
+2. un **morceau très court issu d'une abréviation coupée** (`p. 12` → « p. » + « 12). » → « CPA 12 ») ;
+3. un **caractère inconnu** de son vocabulaire (©, `[`, `]`, `+`, `}`, **ligatures PDF ﬁ ﬂ**…) ou un **appel de note** (`[1]` → « one
+   you », `animals.1` → « one door ») ; les PDF coupent aussi les mots autour d'une ligature (« ré ﬂexion » → « réaction ») ;
+4. **au hasard (~4-7 % des morceaux)** : un mot parasite en fin de phrase (« point », « coin », « pont »…), même avec un texte propre.
+   La ponctuation finale n'est PAS le levier (test de 81 synthèses : « . » 7 %, rien 4 %, « , » 0 % : écart non significatif, et une
+   virgule change l'intonation) ; on garde « . ». Remède : `tts_engine.synthesize` mesure la durée de chaque morceau et la compare à la
+   vitesse de parole médiane de la voix (`_rates`, par langue et vitesse) ; au-delà de 1,5× la durée attendue **et** +1,2 s
+   (`is_overlong`), il **resynthétise** (2 tirages max, garde le plus court). Les nombres sont exclus (durée non comparable).
+5. **Mauvaise langue** : une voix « en » sur un texte français déforme presque tous les mots. L'import détecte la langue ; le brouillon
+   affiche une alerte rouge avec un bouton « Passer en <langue> » et demande confirmation avant de convertir.
+
 Corrections : nettoyage (guillemets supprimés, apostrophes normalisées, notes et symboles retirés, caractères inconnus du tokenizer
-retirés, espaces insécables/invisibles, `p. 12` → « page 12 », `No. 5` → « number 5 »/« numéro »), découpage en phrases qui respecte les
-abréviations, **aucun morceau de ponctuation seule ni morceau final orphelin** (< 25 car. rattaché au précédent), un paragraphe sans rien
-à dire ne produit ni son ni silence. Tests : `build\runtime\python\python.exe -m unittest server.tests.test_speech_text -v` (18 tests,
-sans GPU). Ne pas remettre un découpage « naïf » dans `tts_engine.py`.
+retirés, espaces insécables/invisibles, ligatures développées et mots recollés (`ré ﬂexion` → réflexion, sans toucher à `la ﬁn`),
+`p. 12` → « page 12 », `No. 5` → « number 5 »/« numéro »), découpage en phrases qui respecte les abréviations, **aucun morceau de
+ponctuation seule ni morceau final orphelin** (< 25 car. rattaché au précédent), un paragraphe sans rien à dire ne produit ni son ni
+silence. Même texte et même voix sur la conversion réelle : similarité avec le texte 86,5 % → 93,0 %, mots ajoutés 34 → 3.
+Tests : `build\runtime\python\python.exe -m unittest server.tests.test_speech_text server.tests.test_overlong -v` (sans GPU).
+Ne pas remettre un découpage « naïf » dans `tts_engine.py`. Les scripts de diagnostic (Whisper) ne sont pas dans le dépôt : ne jamais
+mettre Whisper dans `build\runtime` (1 Go de plus dans l'installateur).
 ### Licence et limites
 
 - XTTS-v2 : licence Coqui CPML, **usage non commercial uniquement** (l'utilisateur le sait).

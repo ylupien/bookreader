@@ -45,6 +45,13 @@ class Nettoyage(unittest.TestCase):
         self.assertEqual(st.clean_for_speech("Voir p. 12 et n° 3.", None, "fr"), "Voir page 12 et numéro 3.")
         self.assertEqual(st.clean_for_speech("See p. A and the map.", None, "en"), "See p. A and the map.")   # pas de nombre : inchangé
 
+    def test_ligature_coupee_par_l_extraction_pdf(self):
+        self.assertEqual(st.clean_for_speech("une ré ﬂexion improvisée", None, "fr"), "une réflexion improvisée")
+        self.assertEqual(st.clean_for_speech("une in ﬁme impulsion", None, "fr"), "une infime impulsion")
+        self.assertEqual(st.clean_for_speech("c'est dif ﬁcile", None, "fr"), "c'est difficile")
+        self.assertEqual(st.clean_for_speech("la ﬁn du monde et une ﬂeur", None, "fr"), "la fin du monde et une fleur")   # petits mots : intacts
+        self.assertEqual(st.clean_for_speech("the ﬁrst of all", None, "en"), "the first of all")
+
     def test_espaces_insecables(self):
         self.assertEqual(st.clean_for_speech("Quoi ? Oui !"), "Quoi? Oui!")
 

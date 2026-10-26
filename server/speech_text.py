@@ -21,6 +21,22 @@ HARD_LIMIT = 250         # un morceau fusionné ne dépasse jamais cette taille
 
 # --- Nettoyage des caractères ------------------------------------------------
 
+# Une extraction PDF coupe parfois un mot autour d'une ligature (« ré ﬂexion », « in ﬁme ») : on le recolle quand le fragment
+# qui précède n'est pas un petit mot courant (« la ﬁn », « une ﬂeur » restent intacts).
+_LIGATURE_CHARS = "ﬁﬂﬀﬃﬄ"
+_SHORT_WORDS = {
+    "fr": {"le", "la", "les", "un", "une", "de", "du", "des", "en", "et", "ou", "au", "aux", "à", "a", "ce", "ces", "ses", "mes", "tes",
+           "par", "sur", "sous", "pour", "dans", "que", "qui", "ne", "se", "sa", "son", "ma", "ta", "ni", "si", "on", "il", "je", "tu", "nos", "vos"},
+    "en": {"the", "a", "an", "of", "to", "in", "on", "at", "is", "it", "he", "we", "or", "and", "as", "by", "for", "its", "his", "her", "our", "no", "so", "be", "if", "my"},
+}
+_LIGATURE_SPLIT = re.compile(rf"\b([A-Za-zÀ-ÿ]{{1,3}})\s+([{_LIGATURE_CHARS}])")
+
+
+def _join_ligatures(text: str, lang: str) -> str:
+    short = _SHORT_WORDS.get(lang, set())
+    return _LIGATURE_SPLIT.sub(lambda m: m.group(0) if m.group(1).lower() in short else m.group(1) + m.group(2), text)
+
+
 _LIGATURES = {"ﬁ": "fi", "ﬂ": "fl", "ﬀ": "ff", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st", "œ": "oe", "Œ": "Oe"}
 _SPACES = "            　\t\r\f\v"
 _INVISIBLE = "­​‌‍⁠﻿‎‏‪‫‬‭‮"
@@ -46,6 +62,7 @@ _MULTISPACE = re.compile(r"\s+")
 def clean_for_speech(text: str, is_known: Callable[[str], bool] | None = None, lang: str = "en") -> str:
     """Texte débarrassé de ce que le moteur prononcerait mal. `is_known(c)` : le tokenizer connaît-il ce caractère ?"""
     text = unicodedata.normalize("NFC", text)
+    text = _join_ligatures(text, lang)
     for a, b in _LIGATURES.items():
         text = text.replace(a, b)
     text = text.translate({ord(c): " " for c in _SPACES} | {ord(c): None for c in _INVISIBLE})

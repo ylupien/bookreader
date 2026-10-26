@@ -13,6 +13,9 @@
   const plural = (n: number) => (n > 1 ? 's' : '');
   const sampleLabel = $derived(count ? `${count} paragraphe${plural(count)} coché${plural(count)}` : 'les 2 premiers paragraphes');
   const numbers = $derived(s.sampleSel.map((i) => i + 1).join(', '));
+  // Une voix d'une autre langue que le texte déforme les mots : alerte visible, changement de langue en un clic
+  const detected = $derived(s.book?.detected_language);
+  const mismatch = $derived(!!detected && detected !== app.lang);
 
   async function sample() {
     if (!app.voiceId) return void alert("Choisissez d'abord une voix.");
@@ -27,6 +30,7 @@
 
   async function start() {
     if (!app.voiceId) return void alert("Choisissez d'abord une voix.");
+    if (mismatch && !confirm(`Le texte semble être en ${LANG_NAMES[detected!]} mais la langue choisie est ${LANG_NAMES[app.lang]} : la voix déformera les mots. Convertir quand même ?`)) return;
     starting = true;
     try {
       await s.startConversion();
@@ -38,6 +42,13 @@
 </script>
 
 <div class="msg">
+  {#if mismatch && detected}
+    <div class="lang-warn" role="alert">
+      <strong>⚠ La langue ne correspond pas au texte.</strong>
+      Le texte semble être en {LANG_NAMES[detected]}, mais la langue choisie est {LANG_NAMES[app.lang]} : la voix déformera les mots.
+      <button class="primary" onclick={() => app.setLang(detected)}>Passer en {LANG_NAMES[detected]}</button>
+    </div>
+  {/if}
   <p>
     {#if s.book?.mode === 'chapters'}Vérifiez le découpage en chapitres (titres, parties à ignorer). {/if}Réglez la voix, la langue, la vitesse et les
     réglages avancés dans la barre de gauche, écoutez un échantillon, puis convertissez tout le livre.
